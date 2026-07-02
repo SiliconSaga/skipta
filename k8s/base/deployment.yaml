@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: skipta
+  namespace: skipta
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: skipta}
+  template:
+    metadata:
+      labels: {app: skipta}
+    spec:
+      serviceAccountName: skipta-sa
+      containers:
+      - name: skipta
+        image: ghcr.io/siliconsaga/skipta:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8000
+        env:
+        - name: GCP_PROJECT_ID
+          valueFrom: {configMapKeyRef: {name: skipta-config, key: gcp_project_id}}
+        - name: GCP_REGION
+          valueFrom: {configMapKeyRef: {name: skipta-config, key: gcp_region}}
+        - name: SKIPTA_SPREADSHEET_ID
+          valueFrom: {configMapKeyRef: {name: skipta-config, key: spreadsheet_id}}
+        - name: SKIPTA_DRIVE_FOLDER_ID
+          valueFrom: {configMapKeyRef: {name: skipta-config, key: drive_folder_id}}
+        - name: SKIPTA_BASE_URL
+          valueFrom: {configMapKeyRef: {name: skipta-config, key: base_url}}
+        readinessProbe:
+          httpGet: {path: /healthz, port: 8000}
+          initialDelaySeconds: 3
+          periodSeconds: 5
+        livenessProbe:
+          httpGet: {path: /healthz, port: 8000}
+          initialDelaySeconds: 15
+          periodSeconds: 10
+        resources:
+          requests: {cpu: 250m, memory: 512Mi}
+          limits: {cpu: 500m, memory: 1Gi}

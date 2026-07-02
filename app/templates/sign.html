@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Amendment {{ record.amendment_id }}</title>
+<link rel="stylesheet" href="/static/skipta.css">
+<script src="/static/signature_pad.umd.min.js"></script>
+</head>
+<body><main>
+  <h1>Field amendment — {{ record.customer_name }}</h1>
+  <p>Requested change: <em>{{ record.voice_text }}</em></p>
+  <table>
+    <tr><th>Item</th><th>Description</th><th>Qty</th><th>Unit</th><th>Subtotal</th></tr>
+    {% for item in items %}
+    <tr {% if not item.matched %}class="unmatched"{% endif %}>
+      <td>{{ item.spec }}</td><td>{{ item.description }}</td><td>{{ item.quantity }}</td>
+      <td>{{ "%.2f"|format(item.unit_cost) if item.unit_cost is not none else "—" }}</td>
+      <td>{{ "%.2f"|format(item.subtotal) }}</td>
+    </tr>
+    {% endfor %}
+    <tr class="total"><td colspan="4">Total</td><td>{{ "%.2f"|format(record.total) }}</td></tr>
+  </table>
+  {% if already_signed %}
+    <p class="ok">Already signed. <a href="{{ record.pdf_drive_url }}">View the PDF in Drive</a>.</p>
+  {% elif has_unmatched %}
+    <p class="warn">One or more items have no pricing match (UNMATCHED). Fix the pricing sheet or re-submit the request — signing is disabled.</p>
+  {% else %}
+    <label>Crew signature <a class="clear" href="#" data-clear="crew">clear</a></label>
+    <canvas class="sig" id="crew"></canvas>
+    <label>Customer signature <a class="clear" href="#" data-clear="customer">clear</a></label>
+    <canvas class="sig" id="customer"></canvas>
+    <button id="enact">Enact</button>
+    <p id="result"></p>
+  {% endif %}
+<script>
+if (!{{ "true" if already_signed or has_unmatched else "false" }}) {
+  const pads = {};
+  for (const id of ["crew", "customer"]) {
+    const canvas = document.getElementById(id);
+    canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight;
+    pads[id] = new SignaturePad(canvas);
+  }
+  document.querySelectorAll("a.clear").forEach(a => a.addEventListener("click", e => { e.preventDefault(); pads[a.dataset.clear].clear(); }));
+  document.getElementById("enact").addEventListener("click", async () => {
+    const result = document.getElementById("result");
+    if (pads.crew.isEmpty() || pads.customer.isEmpty()) { result.textContent = "Both signatures are required."; return; }
+    result.textContent = "Generating PDF…";
+    const resp = await fetch("/api/v1/amendments/{{ record.amendment_id }}/sign", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({ crew_signature_base64: pads.crew.toDataURL(), customer_signature_base64: pads.customer.toDataURL() }),
+    });
+    if (!resp.ok) { result.textContent = "Failed: " + (await resp.text()); return; }
+    const data = await resp.json();
+    result.innerHTML = `Signed! <a href="${data.pdf_drive_url}">PDF in Drive</a>`;
+    document.getElementById("enact").disabled = true;
+  });
+}
+</script>
+</main></body>
+</html>

@@ -1,0 +1,18 @@
+* { box-sizing: border-box; }
+body { font-family: system-ui, sans-serif; margin: 0; padding: 1rem; background: #f5f5f4; color: #1c1917; }
+main { max-width: 640px; margin: 0 auto; }
+h1 { font-size: 1.3rem; }
+textarea, input[type=text] { width: 100%; padding: .6rem; font-size: 1rem; border: 1px solid #a8a29e; border-radius: 6px; }
+textarea { min-height: 8rem; }
+button { width: 100%; padding: .8rem; margin-top: 1rem; font-size: 1.05rem; border: 0; border-radius: 6px; background: #1d4ed8; color: #fff; }
+button:disabled { background: #a8a29e; }
+table { width: 100%; border-collapse: collapse; margin: 1rem 0; background: #fff; }
+th, td { border: 1px solid #d6d3d1; padding: .5rem; font-size: .9rem; text-align: left; }
+.total td { font-weight: 700; }
+.unmatched td { color: #b91c1c; font-weight: 600; }
+.warn { background: #fef3c7; border: 1px solid #f59e0b; padding: .8rem; border-radius: 6px; }
+.ok { background: #dcfce7; border: 1px solid #22c55e; padding: .8rem; border-radius: 6px; }
+canvas.sig { width: 100%; height: 160px; background: #fff; border: 1px dashed #78716c; border-radius: 6px; touch-action: none; }
+label { display: block; margin-top: 1rem; font-weight: 600; }
+a.clear { font-size: .8rem; font-weight: 400; float: right; }
+#result a { word-break: break-all; }
