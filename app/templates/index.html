@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Skipta — new field amendment</title>
+<link rel="stylesheet" href="/static/skipta.css">
+</head>
+<body><main>
+  <h1>Skipta — dictate a change order</h1>
+  <p>Tap the text box and use your keyboard's mic to dictate the change, e.g. <em>"Smith wants to upgrade to a 200 amp panel and add three 20 amp single pole breakers."</em></p>
+  <label>Customer (optional — extracted from the note if blank)<input type="text" id="customer"></label>
+  <label>Change order<textarea id="voice" placeholder="Dictate or type the change…"></textarea></label>
+  <button id="submit">Create amendment</button>
+  <p id="result"></p>
+<script>
+document.getElementById("submit").addEventListener("click", async () => {
+  const result = document.getElementById("result");
+  result.textContent = "Working…";
+  const body = { voice_text: document.getElementById("voice").value };
+  const customer = document.getElementById("customer").value.trim();
+  if (customer) body.customer_name = customer;
+  const resp = await fetch("/api/v1/amendments", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body) });
+  if (!resp.ok) { result.textContent = "Failed: " + (await resp.text()); return; }
+  const data = await resp.json();
+  result.innerHTML = `Amendment created — <a href="${data.signing_url}">open the signing page</a>`;
+});
+</script>
+</main></body>
+</html>
