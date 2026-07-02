@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  body { font-family: sans-serif; font-size: 12px; margin: 2em; }
+  h1 { font-size: 18px; }
+  table { width: 100%; border-collapse: collapse; margin: 1em 0; }
+  th, td { border: 1px solid #999; padding: 6px; text-align: left; }
+  .total { font-weight: bold; }
+  .sigs { display: flex; justify-content: space-between; margin-top: 3em; }
+  .sig { width: 45%; border-top: 1px solid #333; padding-top: 4px; }
+  .sig img { max-height: 80px; }
+  .unmatched { color: #b00; font-weight: bold; }
+</style>
+</head>
+<body>
+  <h1>Field Amendment — {{ record.customer_name }}</h1>
+  <p>Amendment <strong>{{ record.amendment_id }}</strong>, created {{ record.created_at }}.</p>
+  <p>This amendment to the existing statement of work covers the following change requested on site:</p>
+  <blockquote>{{ record.voice_text }}</blockquote>
+  <table>
+    <tr><th>Item</th><th>Description</th><th>Qty</th><th>Unit</th><th>Subtotal</th></tr>
+    {% for item in items %}
+    <tr {% if not item.matched %}class="unmatched"{% endif %}>
+      <td>{{ item.spec }}</td>
+      <td>{{ item.description }}</td>
+      <td>{{ item.quantity }}</td>
+      <td>{{ "%.2f"|format(item.unit_cost) if item.unit_cost is not none else "—" }}</td>
+      <td>{{ "%.2f"|format(item.subtotal) }}</td>
+    </tr>
+    {% endfor %}
+    <tr class="total"><td colspan="4">Total</td><td>{{ "%.2f"|format(record.total) }}</td></tr>
+  </table>
+  <p>By signing below, both parties agree to the described change and pricing as an amendment to the existing agreement.</p>
+  <div class="sigs">
+    <div class="sig">{% if crew_signature %}<img src="{{ crew_signature }}">{% endif %}<br>Crew — {{ record.signed_at }}</div>
+    <div class="sig">{% if customer_signature %}<img src="{{ customer_signature }}">{% endif %}<br>Customer — {{ record.customer_name }}</div>
+  </div>
+</body>
+</html>
