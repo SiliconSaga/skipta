@@ -8,7 +8,7 @@ logger = logging.getLogger("skipta.extraction")
 
 class BreakerRequirement(BaseModel):
     amps: int = Field(..., description="Amperage of the breaker, e.g. 20, 30, 50")
-    poles: int = Field(..., description="Number of poles, usually 1 or 2")
+    poles: int | None = Field(default=None, description="Number of poles, usually 1 or 2; None when the note doesn't say")
     quantity: int = Field(..., ge=1, description="Quantity requested")
 
 
@@ -18,6 +18,8 @@ class PanelRequirement(BaseModel):
 
 class AmendmentPayload(BaseModel):
     customer_name: str = Field(..., min_length=1)
+    intent: str = Field(default="new", pattern="^(new|amend)$")
+    proposal_hint: str = ""
     panel: PanelRequirement | None = None
     breakers: list[BreakerRequirement] = Field(default_factory=list)
 
@@ -32,6 +34,15 @@ AMENDMENT_SCHEMA = {
     "type": "OBJECT",
     "properties": {
         "customer_name": {"type": "STRING", "description": "Surname or identifier of the customer"},
+        "intent": {
+            "type": "STRING",
+            "enum": ["new", "amend"],
+            "description": "amend when the note references an existing proposal/quote/document to modify; otherwise new",
+        },
+        "proposal_hint": {
+            "type": "STRING",
+            "description": "The document reference exactly as spoken, e.g. \"Rasmus' SPAN panel proposal\"; empty when none",
+        },
         "panel": {
             "type": "OBJECT",
             "nullable": True,
@@ -47,7 +58,7 @@ AMENDMENT_SCHEMA = {
                     "poles": {"type": "INTEGER"},
                     "quantity": {"type": "INTEGER"},
                 },
-                "required": ["amps", "poles", "quantity"],
+                "required": ["amps", "quantity"],
             },
         },
     },
@@ -56,8 +67,10 @@ AMENDMENT_SCHEMA = {
 
 PROMPT = (
     "You are extracting a field change-order for a residential electrical job from a technician's dictated note. "
-    "Extract ONLY parts the note explicitly mentions — never invent parts, quantities, or a customer name.\n\n"
-    "Note:\n{voice_text}"
+    "Extract ONLY parts the note explicitly mentions — never invent parts, quantities, or a customer name. "
+    "Set intent to 'amend' only when the note references an existing proposal, quote, or document to modify, and "
+    "copy that reference into proposal_hint exactly as spoken; otherwise intent is 'new' and proposal_hint is empty. "
+    "Omit poles when the note does not state them.\n\nNote:\n{voice_text}"
 )
 
 
