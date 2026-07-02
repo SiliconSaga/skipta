@@ -33,6 +33,7 @@ def test_find_folder_builds_query_and_returns_id():
     assert find_customer_folder(drive, "root123", "Smith") == "folder-smith"
     assert "'root123' in parents" in drive.files().q
     assert "mimeType = 'application/vnd.google-apps.folder'" in drive.files().q
+    assert "name = 'Smith'" in drive.files().q  # exact match — 'contains' would let Smith claim Smithson's folder
 
 
 def test_find_folder_escapes_quotes():

@@ -1,6 +1,7 @@
 fastapi>=0.115,<1.0
 uvicorn[standard]>=0.30,<1.0
-google-cloud-aiplatform>=1.60,<2.0
+# <1.160: vertexai.generative_models is past its announced removal date; 1.159 verified to still ship it
+google-cloud-aiplatform>=1.60,<1.160
 google-api-python-client>=2.100,<3.0
 google-auth>=2.30,<3.0
 jinja2>=3.1,<4.0

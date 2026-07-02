@@ -13,7 +13,7 @@ def _escape(value: str) -> str:
 def find_customer_folder(drive, root_folder_id: str, customer_name: str):
     query = (
         f"'{_escape(root_folder_id)}' in parents and mimeType = '{FOLDER_MIME}' "
-        f"and name contains '{_escape(customer_name)}' and trashed = false"
+        f"and name = '{_escape(customer_name)}' and trashed = false"
     )
     result = drive.files().list(q=query, fields="files(id, name)", pageSize=5).execute()
     files = result.get("files", [])
