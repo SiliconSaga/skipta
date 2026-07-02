@@ -15,10 +15,12 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
 from app import amendments, pricing
+from app import drive as drive_mod
 from app.amendments import AmendmentRecord
 from app.config import Settings
 from app.extraction import ExtractionError, extract_amendment
 from app.google_clients import build_drive, build_sheets, get_credentials, make_model_factory, read_values
+from app.pdf import render_amendment_html, render_pdf
 
 logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO").upper(), format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger("skipta")
@@ -140,3 +142,56 @@ def signing_page(request: Request, amendment_id: str, settings: Settings = Depen
         request, "sign.html",
         {"record": record, "items": items, "has_unmatched": any(not i["matched"] for i in items), "already_signed": record.status == "signed"},
     )
+
+
+class SignRequest(BaseModel):
+    crew_signature_base64: str
+    customer_signature_base64: str
+
+    @field_validator("crew_signature_base64", "customer_signature_base64")
+    @classmethod
+    def must_be_png_data_url(cls, v: str) -> str:
+        if not v.startswith("data:image/png;base64,"):
+            raise ValueError("signature must be a PNG data URL")
+        return v
+
+
+@app.post("/api/v1/amendments/{amendment_id}/sign")
+@limiter.limit(lambda: f"{get_settings().rate_limit_per_minute}/minute")
+def sign_amendment(
+    request: Request,
+    amendment_id: str,
+    body: SignRequest,
+    settings: Settings = Depends(get_settings),
+    sheets=Depends(get_sheets),
+    drive=Depends(get_drive),
+):
+    found = amendments.find_amendment(sheets, settings.spreadsheet_id, amendment_id)
+    if found is None:
+        raise HTTPException(status_code=404, detail="Unknown amendment")
+    row, record = found
+    if record.status == "signed":
+        raise HTTPException(status_code=409, detail="Amendment already signed")
+
+    signed_at = datetime.now(timezone.utc)
+    record.signed_at = signed_at.isoformat()
+    items = json.loads(record.line_items_json)
+    html = render_amendment_html(record, items, crew_signature=body.crew_signature_base64, customer_signature=body.customer_signature_base64)
+    try:
+        pdf_bytes = render_pdf(html)
+    except OSError as exc:
+        raise HTTPException(status_code=502, detail=f"PDF rendering unavailable: {exc}") from exc
+
+    created_ts = amendment_id.rsplit("_", 1)[-1]
+    filename = f"{record.customer_name.replace(' ', '_')}_Amendment_{created_ts}.pdf"  # deterministic per amendment — a retry reuses the same name
+    try:
+        folder_id = drive_mod.ensure_customer_folder(drive, settings.drive_folder_id, record.customer_name)
+        pdf_url = drive_mod.find_file_in_folder(drive, folder_id, filename) or drive_mod.upload_pdf(drive, folder_id, filename, pdf_bytes)
+        amendments.mark_signed(sheets, settings.spreadsheet_id, row, pdf_url, record.signed_at)
+    except HTTPException:
+        raise
+    except Exception as exc:  # Drive/Sheets upstream failure — surface honestly
+        logger.error("sign flow failed for %s: %s", amendment_id, exc)
+        raise HTTPException(status_code=502, detail=f"Google API failure: {exc}") from exc
+    logger.info("amendment %s signed → %s", amendment_id, pdf_url)
+    return {"pdf_drive_url": pdf_url}
