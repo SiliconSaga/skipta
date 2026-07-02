@@ -34,7 +34,7 @@ class AmendmentRecord:
 
 
 def make_amendment_id(customer_name: str, now) -> str:
-    cleaned = re.sub(r"['']", "", customer_name.lower())  # O'Brien → obrien, not o-brien
+    cleaned = re.sub(r"['’]", "", customer_name.lower())  # straight + curly apostrophes: O'Brien → obrien, not o-brien
     slug = re.sub(r"[^a-z0-9]+", "-", cleaned).strip("-")
     return f"amend_{slug}_{now.strftime('%Y%m%d%H%M%S')}"
 

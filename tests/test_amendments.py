@@ -46,6 +46,8 @@ def record(aid="amend_smith_20260701120000"):
 def test_amendment_id_slug():
     aid = make_amendment_id("O'Brien Jr.", datetime(2026, 7, 1, 12, 0, 0, tzinfo=timezone.utc))
     assert aid == "amend_obrien-jr_20260701120000"
+    aid_curly = make_amendment_id("O’Brien Jr.", datetime(2026, 7, 1, 12, 0, 0, tzinfo=timezone.utc))
+    assert aid_curly == "amend_obrien-jr_20260701120000"
 
 
 def test_append_and_find_roundtrip():
