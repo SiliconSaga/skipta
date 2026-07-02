@@ -16,6 +16,7 @@ class Settings:
     spreadsheet_id: str
     drive_folder_id: str
     base_url: str
+    gcs_bucket: str = ""
     model_names: list[str] = field(default_factory=list)
     max_output_tokens: int = 1024
     rate_limit_per_minute: int = 10
@@ -28,6 +29,7 @@ class Settings:
             spreadsheet_id=os.getenv("SKIPTA_SPREADSHEET_ID", ""),
             drive_folder_id=os.getenv("SKIPTA_DRIVE_FOLDER_ID", ""),
             base_url=os.getenv("SKIPTA_BASE_URL", "http://localhost:8000"),
+            gcs_bucket=os.getenv("SKIPTA_GCS_BUCKET", ""),
             model_names=[m.strip() for m in os.getenv("SKIPTA_MODEL_NAMES", DEFAULT_MODELS).split(",") if m.strip()],
             max_output_tokens=int(os.getenv("MAX_OUTPUT_TOKENS", "1024")),
             rate_limit_per_minute=int(os.getenv("RATE_LIMIT_PER_MINUTE", "10")),

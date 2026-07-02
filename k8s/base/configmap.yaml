@@ -8,4 +8,5 @@ data:
   gcp_region: "us-east1"
   spreadsheet_id: "11cKYWrc4TdfdfD5ko2BkAzttCy7-q2U79LmNeQ2Rn1w"
   drive_folder_id: "1kUxdx8qgOzG7-s_1zRI3FlWWG70XQGHd"
+  gcs_bucket: "skipta-amendments-teralivekubernetes"
   base_url: "https://skipta.cmdbee.org"

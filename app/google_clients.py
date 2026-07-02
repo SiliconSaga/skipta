@@ -18,8 +18,10 @@ def build_sheets(creds):
     return build("sheets", "v4", credentials=creds, cache_discovery=False)
 
 
-def build_drive(creds):
-    return build("drive", "v3", credentials=creds, cache_discovery=False)
+def build_storage(creds, project_id: str):
+    from google.cloud import storage
+
+    return storage.Client(project=project_id, credentials=creds)
 
 
 def make_model_factory(project_id: str, region: str):

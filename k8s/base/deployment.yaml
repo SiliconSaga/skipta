@@ -27,6 +27,8 @@ spec:
           valueFrom: {configMapKeyRef: {name: skipta-config, key: spreadsheet_id}}
         - name: SKIPTA_DRIVE_FOLDER_ID
           valueFrom: {configMapKeyRef: {name: skipta-config, key: drive_folder_id}}
+        - name: SKIPTA_GCS_BUCKET
+          valueFrom: {configMapKeyRef: {name: skipta-config, key: gcs_bucket}}
         - name: SKIPTA_BASE_URL
           valueFrom: {configMapKeyRef: {name: skipta-config, key: base_url}}
         readinessProbe:

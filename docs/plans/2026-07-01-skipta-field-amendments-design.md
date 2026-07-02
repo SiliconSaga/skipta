@@ -29,10 +29,9 @@ One FastAPI (Python 3.11+) service, single Deployment in the `skipta` namespace:
     ├── extraction.py — Gemini structured output (Vertex AI, Workload Identity)
     ├── pricing.py    — Sheets Panels/Breakers lookup + totals
     ├── amendments.py — append Amendments row (status=draft)
-    ├── drive.py      — locate customer SoW subfolder
     └── returns {amendment_id, signing_url}
 [Any phone]  --GET /amendments/{id}-->  server-rendered signing page (Jinja2 + signature_pad)
-             --POST /api/v1/amendments/{id}/sign--> pdf.py (WeasyPrint) → Drive upload → row status=signed
+             --POST /api/v1/amendments/{id}/sign--> pdf.py (WeasyPrint) → gcs.py upload → row status=signed
 ```
 
 ### Modules
@@ -44,7 +43,7 @@ One FastAPI (Python 3.11+) service, single Deployment in the `skipta` namespace:
 | `app/extraction.py` | Gemini structured output → `AmendmentPayload` | Vertex AI |
 | `app/pricing.py` | match payload items against `Panels`/`Breakers` tabs, compute totals | Sheets |
 | `app/amendments.py` | amendment state rows in the `Amendments` tab (draft→signed) | Sheets |
-| `app/drive.py` | customer SoW folder search, PDF upload | Drive |
+| `app/gcs.py` | signed-PDF archive: customer-prefixed blob names, idempotent find-or-upload, public URLs | GCS |
 | `app/pdf.py` | render amendment HTML (with signatures) → flattened PDF | WeasyPrint |
 
 Google clients are constructed in one place and injected, so tests swap in fakes without patching.
@@ -56,7 +55,7 @@ Google clients are constructed in one place and injected, so tests swap in fakes
 | `GET /` | Mobile intake form: customer name + voice-text area (phone dictation), posts to the API |
 | `POST /api/v1/amendments` | Extract → price → persist draft row → return `{amendment_id, signing_url}` |
 | `GET /amendments/{id}` | Server-rendered signing page: itemized parts, totals, two signature_pad canvases |
-| `POST /api/v1/amendments/{id}/sign` | Accept both Base64 signatures, render PDF, upload to Drive, flip row to `signed` |
+| `POST /api/v1/amendments/{id}/sign` | Accept both Base64 signatures, render PDF, upload to the GCS archive, flip row to `signed` |
 | `GET /healthz` | Probe target (ting convention) |
 
 `amendment_id` is `amend_<slugified-customer>_<YYYYMMDDHHMMSS>` per the MVP naming convention. A small hand-rolled mobile-first stylesheet and `signature_pad.umd.js` are vendored under `app/static/` — no CDN dependency on a job site with weak signal, and no Node/Tailwind toolchain in the build (a deliberate simplification of the MVP's TailwindCSS suggestion).
@@ -75,7 +74,7 @@ One spreadsheet, three tabs. `Panels` and `Breakers` follow the MVP schema exact
 - `Breakers`: `breaker_id`, `amps`, `poles`, `description`, `unit_cost`
 - `Amendments` (state machine, one row per amendment): `amendment_id`, `created_at`, `customer_name`, `voice_text`, `extracted_json`, `line_items_json`, `total`, `status` (`draft` | `signed`), `pdf_drive_url`, `signed_at`
 
-The signing page re-reads its row on every GET, so replicas and pod restarts are invisible. Drive layout: a `Skipta/` folder shared with the service account, one subfolder per customer holding their SoW doc; signed PDFs upload into that subfolder as `[Customer_Name]_Amendment_[Timestamp].pdf`.
+The signing page re-reads its row on every GET, so replicas and pod restarts are invisible. Signed PDFs live in the public-read GCS bucket `skipta-amendments-teralivekubernetes` under a per-customer prefix (`Smith/Smith_Amendment_<created-ts>.pdf` — the deterministic name doubles as the retry-idempotency key), and the `pdf_drive_url` column carries the public object URL. The Drive `Skipta/` folder (shared with the service account) is the human-side archive: one subfolder per customer holding their SoW doc.
 
 ## Google auth — no tokens, no keys
 
@@ -83,13 +82,14 @@ One service account, `skipta-gsa@teralivekubernetes.iam.gserviceaccount.com`:
 
 - **Vertex AI:** `roles/aiplatform.user` on project `teralivekubernetes` (mirror of `um-vertex-ai-gsa`).
 - **Drive/Sheets:** no IAM role — the human shares the `Skipta/` folder and the spreadsheet with the GSA email as Editor. `drive.googleapis.com` and `sheets.googleapis.com` get enabled on the project.
+- **GCS:** `roles/storage.objectUser` on the `skipta-amendments-teralivekubernetes` bucket (create + read the PDF archive); `allUsers` hold `objectViewer` so amendment links open like share links. Consumer-account service accounts have zero Drive storage quota — they cannot own Drive files or folders — which is why the PDF archive is a bucket rather than the Drive folder.
 - **On GKE:** KSA `skipta-sa` in the `skipta` namespace, annotated `iam.gke.io/gcp-service-account=skipta-gsa@…`, with the `roles/iam.workloadIdentityUser` binding for `teralivekubernetes.svc.id.goog[skipta/skipta-sa]`. The workload pool is already enabled on `ttf-cluster`.
 - **Locally:** `gcloud auth application-default login --impersonate-service-account=skipta-gsa@…` (requires `roles/iam.serviceAccountTokenCreator` on the GSA for the human) — dev runs as the same identity the pod uses.
 - **In code:** `google.auth.default(scopes=[drive, spreadsheets, cloud-platform])`; the GKE Workload Identity metadata server honors requested scopes. Escape hatch if scope-narrowing misbehaves: self-impersonated credentials via the IAM Credentials API (`impersonated_credentials` targeting the same GSA with explicit Drive/Sheets scopes).
 
-Config that reaches the pod is identifiers only (spreadsheet ID, Drive folder ID, project, region, model list) — a ConfigMap, no Secret.
+Config that reaches the pod is identifiers only (spreadsheet ID, Drive folder ID, GCS bucket name, project, region, model list) — a ConfigMap, no Secret.
 
-**Documented caveat:** PDFs uploaded by the GSA are owned by it and count against the service account's own ~15 GB Drive quota. Acceptable for a demo; the promote-to-real path is a Workspace Shared Drive.
+**Documented caveat:** the PDF bucket is public-read for demo-tier link sharing, so amendment PDFs are world-readable to anyone holding the URL — fine for sample customers. The promote-to-real path is a private bucket with signed URLs (or a Workspace Shared Drive, which restores Drive-native storage).
 
 ## Kubernetes deployment
 

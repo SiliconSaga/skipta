@@ -13,14 +13,20 @@ def created(client):
     return client.post("/api/v1/amendments", json={"voice_text": "x"}).json()
 
 
+def expected_blob(created):
+    ts = created["amendment_id"].rsplit("_", 1)[-1]
+    return f"Smith/Smith_Amendment_{ts}.pdf"
+
+
 def test_sign_uploads_pdf_and_marks_signed(client, fakes, created, signed_body, monkeypatch):
     monkeypatch.setattr("app.main.render_pdf", lambda html: b"%PDF-fake")
     resp = client.post(f"/api/v1/amendments/{created['amendment_id']}/sign", json=signed_body)
     assert resp.status_code == 200
-    assert resp.json()["pdf_drive_url"].startswith("https://drive.google.com/")
+    url = resp.json()["pdf_drive_url"]
+    assert url == f"https://storage.googleapis.com/test-bucket/{expected_blob(created)}"
     row = fakes["sheets"]._values.store[0]
-    assert row[7] == "signed" and row[8].startswith("https://drive.google.com/")
-    assert fakes["drive"].files().created["body"]["parents"] == ["folder-smith"]
+    assert row[7] == "signed" and row[8] == url
+    assert fakes["storage"].store[expected_blob(created)]["data"] == b"%PDF-fake"
 
 
 def test_double_sign_409(client, fakes, created, signed_body, monkeypatch):
@@ -38,18 +44,10 @@ def test_sign_rejects_non_png_payload(client, created):
     assert client.post(f"/api/v1/amendments/{created['amendment_id']}/sign", json=bad).status_code == 422
 
 
-def test_sign_creates_missing_customer_folder(client, fakes, created, signed_body, monkeypatch):
-    monkeypatch.setattr("app.main.render_pdf", lambda html: b"%PDF-fake")
-    fakes["drive"].files().listing.clear()
-    resp = client.post(f"/api/v1/amendments/{created['amendment_id']}/sign", json=signed_body)
-    assert resp.status_code == 200
-    assert fakes["drive"].files().created["body"]["parents"] == ["new-id"]  # upload landed in the just-created folder
-
-
 def test_sign_retry_reuses_existing_pdf(client, fakes, created, signed_body, monkeypatch):
     monkeypatch.setattr("app.main.render_pdf", lambda html: b"%PDF-fake")
-    fakes["drive"].files().listing[0]["webViewLink"] = "https://drive.google.com/file/d/existing/view"
+    fakes["storage"].store[expected_blob(created)] = {"data": b"original", "content_type": "application/pdf"}
     resp = client.post(f"/api/v1/amendments/{created['amendment_id']}/sign", json=signed_body)
     assert resp.status_code == 200
-    assert resp.json()["pdf_drive_url"] == "https://drive.google.com/file/d/existing/view"
-    assert fakes["drive"].files().created is None  # neither folder nor PDF was re-created
+    assert resp.json()["pdf_drive_url"].endswith(expected_blob(created))
+    assert fakes["storage"].store[expected_blob(created)]["data"] == b"original"  # no re-upload on retry
