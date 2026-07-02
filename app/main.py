@@ -14,12 +14,11 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
-from app import amendments, pricing
-from app import drive as drive_mod
+from app import amendments, gcs, pricing
 from app.amendments import AmendmentRecord
 from app.config import Settings
 from app.extraction import ExtractionError, extract_amendment
-from app.google_clients import build_drive, build_sheets, get_credentials, make_model_factory, read_values
+from app.google_clients import build_sheets, build_storage, get_credentials, make_model_factory, read_values
 from app.pdf import render_amendment_html, render_pdf
 
 logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO").upper(), format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
@@ -50,10 +49,11 @@ def get_sheets():
     return _clients["sheets"]
 
 
-def get_drive():
-    if "drive" not in _clients:
-        _clients["drive"] = build_drive(get_credentials())
-    return _clients["drive"]
+def get_storage():
+    if "storage" not in _clients:
+        settings = get_settings()
+        _clients["storage"] = build_storage(get_credentials(), settings.project_id)
+    return _clients["storage"]
 
 
 def get_extract():
@@ -164,7 +164,7 @@ def sign_amendment(
     body: SignRequest,
     settings: Settings = Depends(get_settings),
     sheets=Depends(get_sheets),
-    drive=Depends(get_drive),
+    storage=Depends(get_storage),
 ):
     found = amendments.find_amendment(sheets, settings.spreadsheet_id, amendment_id)
     if found is None:
@@ -184,13 +184,13 @@ def sign_amendment(
 
     created_ts = amendment_id.rsplit("_", 1)[-1]
     filename = f"{record.customer_name.replace(' ', '_')}_Amendment_{created_ts}.pdf"  # deterministic per amendment — a retry reuses the same name
+    name = gcs.blob_name(record.customer_name, filename)
     try:
-        folder_id = drive_mod.ensure_customer_folder(drive, settings.drive_folder_id, record.customer_name)
-        pdf_url = drive_mod.find_file_in_folder(drive, folder_id, filename) or drive_mod.upload_pdf(drive, folder_id, filename, pdf_bytes)
+        pdf_url = gcs.find_pdf(storage, settings.gcs_bucket, name) or gcs.upload_pdf(storage, settings.gcs_bucket, name, pdf_bytes)
         amendments.mark_signed(sheets, settings.spreadsheet_id, row, pdf_url, record.signed_at)
     except HTTPException:
         raise
-    except Exception as exc:  # Drive/Sheets upstream failure — surface honestly
+    except Exception as exc:  # GCS/Sheets upstream failure — surface honestly
         logger.error("sign flow failed for %s: %s", amendment_id, exc)
         raise HTTPException(status_code=502, detail=f"Google API failure: {exc}") from exc
     logger.info("amendment %s signed → %s", amendment_id, pdf_url)
