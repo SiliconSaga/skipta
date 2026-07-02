@@ -2,7 +2,7 @@
 
 AI-backed field amendment & signing service — a GDD showcase. A field tech dictates a change order; Gemini (Vertex AI structured output) extracts a strict parts payload; Google Sheets prices it; both parties sign on an HTML5 canvas page; the flattened PDF lands in the customer's Google Drive folder.
 
-Design: [yggdrasil docs/plans/2026-07-01-skipta-field-amendments-design.md](https://github.com/SiliconSaga/yggdrasil/blob/main/docs/plans/2026-07-01-skipta-field-amendments-design.md)
+Design: [docs/plans/2026-07-01-skipta-field-amendments-design.md](docs/plans/2026-07-01-skipta-field-amendments-design.md) · Implementation plan: [docs/plans/2026-07-01-skipta-field-amendments-plan.md](docs/plans/2026-07-01-skipta-field-amendments-plan.md)
 
 ## Local dev
 
