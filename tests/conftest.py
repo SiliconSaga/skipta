@@ -45,5 +45,9 @@ def client(fakes):
     app.dependency_overrides[get_sheets] = lambda: fakes["sheets"]
     app.dependency_overrides[get_drive] = lambda: fakes["drive"]
     app.dependency_overrides[get_extract] = lambda: (lambda voice_text, settings: payload)
+    # The limiter's limit-lambda calls get_settings() directly, outside Depends resolution,
+    # so dependency_overrides can't reach it — the suite would share one real 10/min budget.
+    app.state.limiter.enabled = False
     yield TestClient(app)
+    app.state.limiter.enabled = True
     app.dependency_overrides.clear()

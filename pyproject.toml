@@ -4,3 +4,7 @@ target-version = "py311"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+filterwarnings = [
+    # Third-party deprecation inside fastapi's TestClient import; nothing actionable here.
+    "ignore:Using `httpx` with `starlette.testclient` is deprecated",
+]
