@@ -1,6 +1,6 @@
 import pytest
 
-from app.proposals import Candidate, ProposalTooLarge, fetch_pdf, search_proposals
+from app.proposals import Candidate, ProposalParseError, ProposalTooLarge, fetch_pdf, parse_proposal, search_proposals
 
 FOLDER_MIME = "application/vnd.google-apps.folder"
 DOC_MIME = "application/vnd.google-apps.document"
@@ -84,3 +84,53 @@ def test_fetch_pdf_exports_google_doc():
 def test_fetch_pdf_too_large():
     with pytest.raises(ProposalTooLarge):
         fetch_pdf(make_drive(), "big")
+
+
+FACTS_JSON = '{"proposal_title": "SPAN Panel Upgrade", "original_total": 12345.67, "customer_email": "r@x.com", "customer_address": "1 Main St"}'
+
+
+class FakeResponse:
+    def __init__(self, text):
+        self.text = text
+
+
+class FakeParseModel:
+    def __init__(self, text=None, error=None):
+        self.text, self.error = text, error
+        self.contents = None
+
+    def generate_content(self, contents, generation_config=None):
+        if self.error:
+            raise self.error
+        self.contents = contents
+        return FakeResponse(self.text)
+
+
+def parse_factory(models):
+    calls = []
+
+    def factory(name):
+        calls.append(name)
+        return models[len(calls) - 1]
+
+    factory.calls = calls
+    return factory
+
+
+def test_parse_proposal_returns_facts_and_sends_pdf_part():
+    model = FakeParseModel(text=FACTS_JSON)
+    facts = parse_proposal(b"%PDF-real", model_factory=parse_factory([model]), model_names=["m1"], max_output_tokens=512)
+    assert facts.original_total == 12345.67 and facts.customer_email == "r@x.com"
+    assert isinstance(model.contents, list) and len(model.contents) == 2  # [pdf Part, prompt]
+
+
+def test_parse_missing_total_is_none():
+    model = FakeParseModel(text='{"proposal_title": "T", "customer_email": "", "customer_address": ""}')
+    facts = parse_proposal(b"%PDF", model_factory=parse_factory([model]), model_names=["m1"], max_output_tokens=512)
+    assert facts.original_total is None
+
+
+def test_parse_all_models_fail_raises():
+    factory = parse_factory([FakeParseModel(text="junk"), FakeParseModel(error=RuntimeError("quota"))])
+    with pytest.raises(ProposalParseError):
+        parse_proposal(b"%PDF", model_factory=factory, model_names=["m1", "m2"], max_output_tokens=512)
