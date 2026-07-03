@@ -2,9 +2,14 @@
 
 **Skipta** is Old Norse for exchanging and shifting — making a trade, or moving between states. The idiom *skipta máli* means "to make a difference; to alter the meaning or matter." Both are the job description: a mid-job change order trades scope, and a signed amendment alters the agreement.
 
-Skipta is an AI-backed field amendment & signing service — a GDD showcase. A field tech dictates a change order; Gemini (Vertex AI structured output) extracts a strict parts payload; Google Sheets prices it; both parties sign on an HTML5 canvas page; the flattened PDF lands in the customer's Google Drive folder. The amendment itself shifts states the same way: `draft` → `signed`, one row in the sheet.
+Skipta is an AI-backed field amendment & signing service — a GDD showcase. A field tech dictates a change order; Gemini (Vertex AI structured output) extracts a strict parts payload; Google Sheets prices it; both parties sign on an HTML5 canvas page; the flattened PDF lands in the GCS archive with its link on the sheet row. The amendment itself shifts states the same way: `draft` → `signed`, one row in the sheet.
 
-Design: [docs/plans/2026-07-01-skipta-field-amendments-design.md](docs/plans/2026-07-01-skipta-field-amendments-design.md) · Implementation plan: [docs/plans/2026-07-01-skipta-field-amendments-plan.md](docs/plans/2026-07-01-skipta-field-amendments-plan.md)
+## Two flows
+
+- **New work order** — "Smith wants a 200 amp panel and three 20 amp single pole breakers": priced from the sheet, signed, archived.
+- **Amend existing proposal** — "Amend Rasmus' SPAN panel proposal to add a sub panel with four 20 amp breakers and 2 30 amp breakers": Skipta finds the proposal PDF in the shared Drive folder (asking when zero or several match), reads it with Gemini for the original total and customer details, and the signed amendment shows Original / This amendment / Grand total with the source document named.
+
+Docs: [phase-1 design](docs/plans/2026-07-01-skipta-field-amendments-design.md) · [phase-1 plan](docs/plans/2026-07-01-skipta-field-amendments-plan.md) · [phase-2 design](docs/plans/2026-07-02-skipta-proposal-amendments-design.md) · [phase-2 plan](docs/plans/2026-07-02-skipta-proposal-amendments-plan.md)
 
 ## Local dev
 
