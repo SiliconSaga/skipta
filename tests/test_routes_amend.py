@@ -48,3 +48,22 @@ def test_no_candidates_still_offers_proceed(client, fakes):
     assert resp.status_code == 200
     data = resp.json()
     assert data["candidates"] == [] and "note" in data
+
+
+def test_signing_page_shows_provenance_and_grand_total(client, fakes):
+    amendify(client)
+    client.post("/api/v1/amendments", json={"voice_text": "amend", "proposal_file_id": "p1"})
+    aid = fakes["sheets"]._values.store[0][0]
+    page = client.get(f"/amendments/{aid}").text
+    assert "span-quote.pdf" in page and "12345.67" in page
+    assert "Grand total" in page and "12375.67" in page  # 12345.67 + 30.00 (4 × 7.50)
+
+
+def test_signing_page_omits_grand_total_when_original_missing(client, fakes):
+    amendify(client)
+    fakes["facts"] = fakes["facts"].model_copy(update={"original_total": None})
+    client.post("/api/v1/amendments", json={"voice_text": "amend", "proposal_file_id": "p1"})
+    aid = fakes["sheets"]._values.store[0][0]
+    page = client.get(f"/amendments/{aid}").text
+    assert "not found in document" in page
+    assert "Grand total" not in page
