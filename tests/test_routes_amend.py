@@ -1,4 +1,5 @@
 from app.extraction import AmendmentPayload
+from app.proposals import ProposalFetchError
 
 AMEND_PAYLOAD = {
     "customer_name": "Smith", "intent": "amend", "proposal_hint": "span quote",
@@ -48,6 +49,18 @@ def test_no_candidates_still_offers_proceed(client, fakes):
     assert resp.status_code == 200
     data = resp.json()
     assert data["candidates"] == [] and "note" in data
+
+
+def test_fetch_failure_returns_502_and_writes_no_row(client, fakes, monkeypatch):
+    amendify(client)
+
+    def boom(drive, file_id):
+        raise ProposalFetchError("kaboom")
+
+    monkeypatch.setattr("app.main.proposals.fetch_pdf", boom)
+    resp = client.post("/api/v1/amendments", json={"voice_text": "amend", "proposal_file_id": "p1"})
+    assert resp.status_code == 502
+    assert fakes["sheets"]._values.store == []  # honest failure leaves no draft behind
 
 
 def test_signing_page_shows_provenance_and_grand_total(client, fakes):
