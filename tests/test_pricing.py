@@ -35,3 +35,20 @@ def test_unmatched_breaker_flags_result():
 def test_no_panel_no_panel_item():
     result = price_amendment(payload(panel=None), parse_panels(PANEL_ROWS), parse_breakers(BREAKER_ROWS))
     assert all(i.kind != "panel" for i in result.line_items)
+
+
+def test_poles_unspecified_matches_unique_amps():
+    result = price_amendment(
+        payload(panel=None, breakers=[{"amps": 30, "quantity": 2}]), parse_panels(PANEL_ROWS), parse_breakers(BREAKER_ROWS)
+    )
+    item = result.line_items[0]
+    assert item.matched is True and item.unit_cost == 18.00 and item.subtotal == 36.00
+
+
+def test_poles_unspecified_ambiguous_amps_is_unmatched():
+    rows = BREAKER_ROWS + [["B-30A-1P", "30", "1", "30A Single-Pole Type BR", "11.00"]]
+    result = price_amendment(
+        payload(panel=None, breakers=[{"amps": 30, "quantity": 2}]), parse_panels(PANEL_ROWS), parse_breakers(rows)
+    )
+    assert result.line_items[0].matched is False
+    assert result.has_unmatched is True

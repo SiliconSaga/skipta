@@ -47,8 +47,14 @@ def price_amendment(payload: AmendmentPayload, panels: list[dict], breakers: lis
         match = next((p for p in panels if p["max_amperage"] == payload.panel.max_amperage), None)
         items.append(_line_item("panel", f"{payload.panel.max_amperage}A panel", match, 1))
     for req in payload.breakers:
-        match = next((b for b in breakers if b["amps"] == req.amps and b["poles"] == req.poles), None)
-        items.append(_line_item("breaker", f"{req.amps}A {req.poles}-pole breaker", match, req.quantity))
+        if req.poles is None:
+            amp_matches = [b for b in breakers if b["amps"] == req.amps]
+            match = amp_matches[0] if len(amp_matches) == 1 else None
+            spec = f"{req.amps}A breaker"
+        else:
+            match = next((b for b in breakers if b["amps"] == req.amps and b["poles"] == req.poles), None)
+            spec = f"{req.amps}A {req.poles}-pole breaker"
+        items.append(_line_item("breaker", spec, match, req.quantity))
     total = round(sum(i.subtotal for i in items), 2)
     return PricingResult(line_items=items, total=total, has_unmatched=any(not i.matched for i in items))
 
