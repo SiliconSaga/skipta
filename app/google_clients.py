@@ -18,6 +18,10 @@ def build_sheets(creds):
     return build("sheets", "v4", credentials=creds, cache_discovery=False)
 
 
+def build_drive(creds):
+    return build("drive", "v3", credentials=creds, cache_discovery=False)
+
+
 def build_storage(creds, project_id: str):
     from google.cloud import storage
 
