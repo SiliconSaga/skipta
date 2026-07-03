@@ -86,6 +86,13 @@ def test_fetch_pdf_too_large():
         fetch_pdf(make_drive(), "big")
 
 
+def test_fetch_pdf_doc_without_size_metadata_capped_after_download():
+    drive = make_drive()
+    drive.records["gbig"] = {"name": "huge-doc", "mimeType": DOC_MIME, "size": "", "content": b"x" * (11 * 1024 * 1024)}
+    with pytest.raises(ProposalTooLarge):
+        fetch_pdf(drive, "gbig")
+
+
 FACTS_JSON = '{"proposal_title": "SPAN Panel Upgrade", "original_total": 12345.67, "customer_email": "r@x.com", "customer_address": "1 Main St"}'
 
 

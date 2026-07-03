@@ -68,17 +68,25 @@ def fetch_pdf(drive, file_id: str) -> bytes:
     try:
         result = request.execute()
         if isinstance(result, bytes):  # fakes and small downloads return bytes directly
-            return result
+            return _capped(meta["name"], result)
         buffer = io.BytesIO()
         downloader = MediaIoBaseDownload(buffer, request)
         done = False
         while not done:
             _, done = downloader.next_chunk()
-        return buffer.getvalue()
+        return _capped(meta["name"], buffer.getvalue())
     except (ProposalTooLarge, ProposalFetchError):
         raise
     except Exception as exc:
         raise ProposalFetchError(f"could not download {meta['name']}: {exc}") from exc
+
+
+def _capped(name: str, data: bytes) -> bytes:
+    # Native Google Docs often carry no size metadata, so the pre-download cap can't see them;
+    # the actual bytes are the authority either way.
+    if len(data) > MAX_PDF_BYTES:
+        raise ProposalTooLarge(f"{name} exceeds {MAX_PDF_BYTES} bytes after download")
+    return data
 
 
 class ProposalFacts(BaseModel):
