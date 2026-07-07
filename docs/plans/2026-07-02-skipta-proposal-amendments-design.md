@@ -48,7 +48,7 @@ One endpoint, three response shapes. `POST /api/v1/amendments` accepts `{voice_t
 |---|---|
 | `search_proposals(drive, root_folder_id, customer_name, hint) -> list[Candidate]` | Lists the `Skipta/` tree via Drive `files.list`. Scoring: customer-subfolder name match first, then filename token overlap with the hint. Returns PDFs and Google Docs. `Candidate = {file_id, name, folder}` |
 | `fetch_pdf(drive, file_id) -> bytes` | `files.get_media` for PDFs; Google Docs export as PDF so pass 2 is uniform. Hard cap 10 MB → `ProposalTooLarge` |
-| `parse_proposal(model_factory, model_names, pdf_bytes) -> ProposalFacts` | Gemini multimodal (`Part.from_data`, `application/pdf`) with a strict response schema; same model fallback chain as extraction. `ProposalFacts = {proposal_title, original_total: float|None, customer_email: str, customer_address: str}` — absent facts come back empty/None, never invented |
+| `parse_proposal(pdf_bytes, *, model_factory, model_names, max_output_tokens) -> ProposalFacts` | Gemini multimodal (`Part.from_data`, `application/pdf`) with a strict response schema; same model fallback chain as extraction. `ProposalFacts = {proposal_title, original_total: float\|None, customer_email: str, customer_address: str}` — absent facts come back empty/None, never invented |
 
 `build_drive` returns to `google_clients.py` (read-only Drive use is unaffected by the consumer-SA storage-quota wall; the `drive` scope is already requested).
 

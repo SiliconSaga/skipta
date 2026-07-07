@@ -151,6 +151,8 @@ def create_amendment(
             proposal_name = drive.files().get(fileId=body.proposal_file_id, fields="name, mimeType, size").execute()["name"]
         except (proposals.ProposalTooLarge, proposals.ProposalFetchError, proposals.ProposalParseError) as exc:
             raise HTTPException(status_code=502, detail=f"Could not read the proposal: {exc}") from exc
+        except Exception as exc:  # e.g. the post-fetch Drive name lookup — same honest 502
+            raise HTTPException(status_code=502, detail=f"Could not read the proposal: {exc}") from exc
 
     panels = pricing.parse_panels(read_values(sheets, settings.spreadsheet_id, "Panels!A2:D"))
     breakers = pricing.parse_breakers(read_values(sheets, settings.spreadsheet_id, "Breakers!A2:E"))

@@ -89,7 +89,9 @@ def test_amend_row_roundtrip_with_proposal_fields():
     assert back.original_total == 12345.67 and back.customer_address == "1 Main St"
 
 
-def test_legacy_ten_column_row_reads_as_new():
+def test_short_row_from_sheets_api_reads_as_new():
+    # Not legacy support: the Sheets API truncates trailing empty cells on every read,
+    # so even a freshly written kind=new row (empty K-P) comes back short.
     row = ["amend_old_20260101000000", "c", "Old", "v", "{}", "[]", "10.00", "draft", "", ""]
     rec = AmendmentRecord.from_row(row)
     assert rec.kind == "new" and rec.proposal_file_id == "" and rec.original_total is None

@@ -37,7 +37,7 @@
     {% endif %}
   </table>
   {% if already_signed %}
-    <p class="ok">Already signed. <a href="{{ record.pdf_drive_url }}">View the PDF in Drive</a>.</p>
+    <p class="ok">Already signed. <a href="{{ record.pdf_drive_url }}">View the signed PDF</a>.</p>
   {% elif has_unmatched %}
     <p class="warn">One or more items have no pricing match (UNMATCHED). Fix the pricing sheet or re-submit the request — signing is disabled.</p>
   {% else %}
@@ -67,7 +67,7 @@ if (!{{ "true" if already_signed or has_unmatched else "false" }}) {
     });
     if (!resp.ok) { result.textContent = "Failed: " + (await resp.text()); return; }
     const data = await resp.json();
-    result.innerHTML = `Signed! <a href="${data.pdf_drive_url}">PDF in Drive</a>`;
+    result.innerHTML = `Signed! <a href="${data.pdf_drive_url}">Open the signed PDF</a>`;
     document.getElementById("enact").disabled = true;
   });
 }

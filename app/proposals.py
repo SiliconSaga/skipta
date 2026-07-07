@@ -47,7 +47,10 @@ def search_proposals(drive, root_folder_id: str, customer_name: str, hint: str) 
 
     scored: list[tuple[int, int, Candidate]] = []
     for folder_rank, folder in enumerate(ordered):
-        file_query = f"'{_escape(folder['id'])}' in parents and mimeType != '{FOLDER_MIME}' and trashed = false"
+        file_query = (
+            f"'{_escape(folder['id'])}' in parents and trashed = false "
+            f"and (mimeType = 'application/pdf' or mimeType = '{DOC_MIME}')"
+        )
         children = drive.files().list(q=file_query, fields="files(id, name, mimeType)", pageSize=50).execute().get("files", [])
         for child in children:
             overlap = len(hint_tokens & _tokens(child["name"]))

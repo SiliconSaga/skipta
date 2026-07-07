@@ -22,7 +22,10 @@ class FakeDrive:
             self._result = {"files": self.folders}
         else:
             folder_id = q.split("'")[1]
-            self._result = {"files": self.files_by_folder.get(folder_id, [])}
+            children = self.files_by_folder.get(folder_id, [])
+            if "mimeType = 'application/pdf'" in q:  # honor the proposal-type filter like real Drive
+                children = [c for c in children if c["mimeType"] in ("application/pdf", DOC_MIME)]
+            self._result = {"files": children}
         return self
 
     def get(self, fileId, fields=""):
@@ -50,6 +53,7 @@ def make_drive():
             "f-rasmus": [
                 {"id": "p1", "name": "span-panel-proposal.pdf", "mimeType": "application/pdf"},
                 {"id": "p2", "name": "old-invoice.pdf", "mimeType": "application/pdf"},
+                {"id": "img1", "name": "span-panel-photo.jpg", "mimeType": "image/jpeg"},
             ],
             "f-smith": [{"id": "p3", "name": "span-quote.pdf", "mimeType": "application/pdf"}],
         },
@@ -71,6 +75,11 @@ def test_search_prefers_customer_folder_and_hint_tokens():
 def test_search_no_customer_folder_still_searches_all():
     got = search_proposals(make_drive(), "root", "Jones", "span quote")
     assert any(c.file_id == "p3" for c in got)
+
+
+def test_search_offers_only_proposal_types():
+    got = search_proposals(make_drive(), "root", "Rasmus", "span panel")
+    assert all(c.file_id != "img1" for c in got)  # the photo never reaches the pick-list
 
 
 def test_fetch_pdf_plain():

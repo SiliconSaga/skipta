@@ -63,6 +63,23 @@ def test_fetch_failure_returns_502_and_writes_no_row(client, fakes, monkeypatch)
     assert fakes["sheets"]._values.store == []  # honest failure leaves no draft behind
 
 
+def test_name_lookup_failure_also_returns_502(client, fakes, monkeypatch):
+    amendify(client)
+    original_get = fakes["drive"].get
+    calls = {"n": 0}
+
+    def flaky_get(fileId, fields=""):
+        calls["n"] += 1
+        if calls["n"] >= 2:  # first call serves fetch_pdf's metadata; second is the post-fetch name lookup
+            raise RuntimeError("boom")
+        return original_get(fileId, fields)
+
+    monkeypatch.setattr(fakes["drive"], "get", flaky_get)
+    resp = client.post("/api/v1/amendments", json={"voice_text": "amend", "proposal_file_id": "p1"})
+    assert resp.status_code == 502
+    assert fakes["sheets"]._values.store == []
+
+
 def test_signing_page_shows_provenance_and_grand_total(client, fakes):
     amendify(client)
     client.post("/api/v1/amendments", json={"voice_text": "amend", "proposal_file_id": "p1"})
