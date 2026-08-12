@@ -5,7 +5,7 @@ from dataclasses import astuple, dataclass
 from app.google_clients import read_values
 
 TAB = "Amendments"
-DATA_RANGE = f"{TAB}!A2:J"
+DATA_RANGE = f"{TAB}!A2:P"
 
 
 @dataclass
@@ -20,17 +20,26 @@ class AmendmentRecord:
     status: str  # "draft" | "signed"
     pdf_drive_url: str
     signed_at: str
+    kind: str = "new"  # "new" work order | "amend" of an existing proposal
+    proposal_file_id: str = ""
+    proposal_name: str = ""
+    original_total: float | None = None
+    customer_email: str = ""
+    customer_address: str = ""
 
     def to_row(self) -> list:
         row = list(astuple(self))
         row[6] = f"{self.total:.2f}"
+        row[13] = "" if self.original_total is None else f"{self.original_total:.2f}"
         return row
 
     @classmethod
     def from_row(cls, row: list) -> "AmendmentRecord":
-        padded = list(row) + [""] * (10 - len(row))
+        padded = list(row) + [""] * (16 - len(row))
         padded[6] = float(padded[6] or 0)
-        return cls(*padded)
+        padded[10] = padded[10] or "new"
+        padded[13] = float(padded[13]) if padded[13] else None
+        return cls(*padded[:16])
 
 
 def make_amendment_id(customer_name: str, now) -> str:

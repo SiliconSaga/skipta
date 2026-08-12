@@ -71,3 +71,27 @@ def test_mark_signed_updates_status_columns():
     mark_signed(sheets, "sid", 2, "https://drive/x", "2026-07-01T13:00:00+00:00")
     _, rec = find_amendment(sheets, "sid", "amend_smith_20260701120000")
     assert rec.status == "signed" and rec.pdf_drive_url == "https://drive/x"
+
+
+def test_amend_row_roundtrip_with_proposal_fields():
+    store = []
+    sheets = FakeSheets(store)
+    rec = record()
+    rec.kind = "amend"
+    rec.proposal_file_id = "file123"
+    rec.proposal_name = "span-quote.pdf"
+    rec.original_total = 12345.67
+    rec.customer_email = "smith@example.com"
+    rec.customer_address = "1 Main St"
+    append_amendment(sheets, "sid", rec)
+    _, back = find_amendment(sheets, "sid", rec.amendment_id)
+    assert back.kind == "amend" and back.proposal_name == "span-quote.pdf"
+    assert back.original_total == 12345.67 and back.customer_address == "1 Main St"
+
+
+def test_short_row_from_sheets_api_reads_as_new():
+    # Not legacy support: the Sheets API truncates trailing empty cells on every read,
+    # so even a freshly written kind=new row (empty K-P) comes back short.
+    row = ["amend_old_20260101000000", "c", "Old", "v", "{}", "[]", "10.00", "draft", "", ""]
+    rec = AmendmentRecord.from_row(row)
+    assert rec.kind == "new" and rec.proposal_file_id == "" and rec.original_total is None

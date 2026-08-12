@@ -9,6 +9,14 @@
 <body><main>
   <h1>Field amendment — {{ record.customer_name }}</h1>
   <p>Requested change: <em>{{ record.voice_text }}</em></p>
+  {% if record.kind == "amend" %}
+  <div class="provenance">
+    <strong>Original proposal:</strong> {{ record.proposal_name }}<br>
+    Original total: {{ "%.2f"|format(record.original_total) if record.original_total is not none else "not found in document" }}<br>
+    Customer email: {{ record.customer_email or "not found in document" }}<br>
+    Customer address: {{ record.customer_address or "not found in document" }}
+  </div>
+  {% endif %}
   <table>
     <tr><th>Item</th><th>Description</th><th>Qty</th><th>Unit</th><th>Subtotal</th></tr>
     {% for item in items %}
@@ -18,10 +26,18 @@
       <td>{{ "%.2f"|format(item.subtotal) }}</td>
     </tr>
     {% endfor %}
+    {% if record.kind == "amend" %}
+    <tr><td colspan="4">Original proposal</td><td>{{ "%.2f"|format(record.original_total) if record.original_total is not none else "—" }}</td></tr>
+    <tr class="total"><td colspan="4">This amendment</td><td>{{ "%.2f"|format(record.total) }}</td></tr>
+    {% if record.original_total is not none %}
+    <tr class="total"><td colspan="4">Grand total</td><td>{{ "%.2f"|format(record.original_total + record.total) }}</td></tr>
+    {% endif %}
+    {% else %}
     <tr class="total"><td colspan="4">Total</td><td>{{ "%.2f"|format(record.total) }}</td></tr>
+    {% endif %}
   </table>
   {% if already_signed %}
-    <p class="ok">Already signed. <a href="{{ record.pdf_drive_url }}">View the PDF in Drive</a>.</p>
+    <p class="ok">Already signed. <a href="{{ record.pdf_drive_url }}">View the signed PDF</a>.</p>
   {% elif has_unmatched %}
     <p class="warn">One or more items have no pricing match (UNMATCHED). Fix the pricing sheet or re-submit the request — signing is disabled.</p>
   {% else %}
@@ -51,7 +67,7 @@ if (!{{ "true" if already_signed or has_unmatched else "false" }}) {
     });
     if (!resp.ok) { result.textContent = "Failed: " + (await resp.text()); return; }
     const data = await resp.json();
-    result.innerHTML = `Signed! <a href="${data.pdf_drive_url}">PDF in Drive</a>`;
+    result.innerHTML = `Signed! <a href="${data.pdf_drive_url}">Open the signed PDF</a>`;
     document.getElementById("enact").disabled = true;
   });
 }

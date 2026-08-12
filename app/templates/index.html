@@ -13,17 +13,39 @@
   <button id="submit">Create amendment</button>
   <p id="result"></p>
 <script>
-document.getElementById("submit").addEventListener("click", async () => {
+async function submitAmendment(fileId) {
   const result = document.getElementById("result");
   result.textContent = "Working…";
   const body = { voice_text: document.getElementById("voice").value };
   const customer = document.getElementById("customer").value.trim();
   if (customer) body.customer_name = customer;
+  if (fileId !== undefined) body.proposal_file_id = fileId;
   const resp = await fetch("/api/v1/amendments", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body) });
   if (!resp.ok) { result.textContent = "Failed: " + (await resp.text()); return; }
   const data = await resp.json();
+  if (data.status === "choose_proposal") { renderCandidates(data); return; }
   result.innerHTML = `Amendment created — <a href="${data.signing_url}">open the signing page</a>`;
-});
+}
+function renderCandidates(data) {
+  const result = document.getElementById("result");
+  result.innerHTML = "";
+  const heading = document.createElement("p");
+  heading.textContent = data.note || "Which proposal is being amended?";
+  result.appendChild(heading);
+  for (const c of data.candidates) {
+    const btn = document.createElement("button");
+    btn.className = "candidate";
+    btn.textContent = `${c.name} (${c.folder})`;
+    btn.addEventListener("click", () => submitAmendment(c.file_id));
+    result.appendChild(btn);
+  }
+  const none = document.createElement("button");
+  none.className = "candidate none";
+  none.textContent = "None of these — proceed as new work order";
+  none.addEventListener("click", () => submitAmendment(""));
+  result.appendChild(none);
+}
+document.getElementById("submit").addEventListener("click", () => submitAmendment(undefined));
 </script>
 </main></body>
 </html>

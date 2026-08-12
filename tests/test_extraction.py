@@ -57,3 +57,24 @@ def test_no_panel_is_fine():
     payload = extract_amendment("x", model_factory=factory, model_names=["m1"], max_output_tokens=512)
     assert payload.panel is None
     assert isinstance(payload, AmendmentPayload)
+
+
+AMEND_JSON = (
+    '{"customer_name": "Rasmus", "intent": "amend", "proposal_hint": "SPAN panel proposal", '
+    '"breakers": [{"amps": 20, "poles": 1, "quantity": 4}, {"amps": 30, "quantity": 2}]}'
+)
+
+
+def test_amend_intent_and_hint_extracted():
+    factory = factory_for([FakeModel(text=AMEND_JSON)])
+    payload = extract_amendment("amend the proposal", model_factory=factory, model_names=["m1"], max_output_tokens=512)
+    assert payload.intent == "amend"
+    assert payload.proposal_hint == "SPAN panel proposal"
+    assert payload.breakers[1].poles is None  # poles unspecified survives validation
+
+
+def test_intent_defaults_to_new_when_absent():
+    factory = factory_for([FakeModel(text=VALID_JSON)])
+    payload = extract_amendment("x", model_factory=factory, model_names=["m1"], max_output_tokens=512)
+    assert payload.intent == "new"
+    assert payload.proposal_hint == ""
